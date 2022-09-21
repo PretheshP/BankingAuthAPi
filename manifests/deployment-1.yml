@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "authkcn-3222"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "authkcn-3222"
+  template:
+    metadata:
+      labels:
+        app: "authkcn-3222"
+    spec:
+      containers:
+        - name: "authkcn-3222"
+          image: "authcn1.azurecr.io/authkcn"
+          ports:
+          - containerPort: 80
