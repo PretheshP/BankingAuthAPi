@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: authcn1.azurecr.io
+        username: ${{ secrets.acr_authcn1_username }}
+        password: ${{ secrets.acr_authcn1_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t authcn1.azurecr.io/authkcn:${{ github.sha }} --label dockerfile-path=Dockerfile
+        docker push authcn1.azurecr.io/authkcn:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_authkcn_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep authkcnb1a8 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace authkcnb1a8`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: authkcnb1a8
+        container-registry-url: authcn1.azurecr.io
+        container-registry-username: ${{ secrets.acr_authcn1_username }}
+        container-registry-password: ${{ secrets.acr_authcn1_password }}
+        secret-name: authkcndockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: authkcnb1a8
+        manifests: |
+          manifests/deployment-1.yml
+          manifests/service-1.yml
+        images: |
+          authcn1.azurecr.io/authkcn:${{ github.sha }}
+        imagepullsecrets: |
+          authkcndockerauth
